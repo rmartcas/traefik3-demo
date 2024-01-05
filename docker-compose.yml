@@ -1,0 +1,79 @@
+version: "3.3"
+
+services:
+
+  traefik:
+    image: "traefik:v3.0"
+    container_name: "traefik"
+    command:
+      #- "--log.level=DEBUG"
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+    ports:
+      - "80:80"
+      - "8080:8080"
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+    labels:
+      - "traefik.http.middlewares.compress.compress=true"
+
+  whoami:
+    image: "traefik/whoami"
+    container_name: "simple-service"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.whoami.rule=Host(`whoami.localhost`)"
+      - "traefik.http.routers.whoami.entrypoints=web"
+
+  demo1:
+    # The basic demo, no traefik compress, no spring compress, expected 400, returned 400
+    build: ./
+    container_name: "demo1"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.demo1.rule=Host(`demo1.localhost`)"
+      - "traefik.http.routers.demo1.entrypoints=web"
+      - "traefik.http.services.demo1.loadbalancer.server.port=8080"
+
+  demo2:
+    # traefik compress, no spring compress, expected 400, returned 400
+    build: ./
+    container_name: "demo2"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.middlewares.compress.compress=true"
+      #- "traefik.http.middlewares.compress.compress.minresponsebodybytes=50"
+      - "traefik.http.routers.demo2.middlewares=compress"
+      - "traefik.http.routers.demo2.rule=Host(`demo2.localhost`)"
+      - "traefik.http.routers.demo2.entrypoints=web"
+      - "traefik.http.services.demo2.loadbalancer.server.port=8080"
+
+  demo3:
+    # no traefik compress, spring compress, expected 400, returned 400
+    build: ./
+    container_name: "demo3"
+    environment:
+      - SERVER_COMPRESSION_ENABLED=true
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.demo3.rule=Host(`demo3.localhost`)"
+      - "traefik.http.routers.demo3.entrypoints=web"
+      - "traefik.http.services.demo3.loadbalancer.server.port=8080"
+
+  demo4:
+    # traefik compress, spring compress, expected 400, returned 200
+    build: ./
+    container_name: "demo4"
+    environment:
+      - SERVER_COMPRESSION_ENABLED=true
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.middlewares.compress.compress=true"
+      - "traefik.http.routers.demo4.middlewares=compress"
+      - "traefik.http.routers.demo4.rule=Host(`demo4.localhost`)"
+      - "traefik.http.routers.demo4.entrypoints=web"
+      - "traefik.http.services.demo4.loadbalancer.server.port=8080"
+      
+    
